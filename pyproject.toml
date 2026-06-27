@@ -1,0 +1,11 @@
+[project]
+name = "llm-client"
+version = "0.1.0"
+description = "Простой llm компонент, работающий как самостоятельный компонент и управляемый оркестратором."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "infrastructure @ git+https://github.com/Mike2024New/infrastructure.git",
+    "llama-cpp-python==0.3.30",
+    "typer>=0.26.7",
+]

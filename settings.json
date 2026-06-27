@@ -1,0 +1,13 @@
+{
+  "settings_model": {
+    "n_ctx": 1024,
+    "use_mmap": true,
+    "model_log": false,
+    "max_tokens": 512,
+    "temperature": 0.5,
+    "history_messages_limit": 10,
+    "processor_power_percentage": 80,
+    "default_system_prompt": "Привет! Давай просто пообщаемся на разные темы, отвечай кратко без маркдаунов и разметки."
+  },
+  "local_files_only": true
+}
