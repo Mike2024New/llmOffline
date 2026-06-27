@@ -21,7 +21,8 @@ class ModelsMap(RootModel[dict[str, dict[str, list[str]]]]):
 # карта используемых моделей
 models_schema = ModelsMap.model_validate({
     'lmstudio-community': {  # репозтироий
-        'gemma-3-4b-it-GGUF': ["gemma-3-4b-it-Q4_K_M.gguf"],  # название модели : название файла (как на url)
+        'gemma-3-1b-it-GGUF': ["gemma-3-1b-it-Q4_K_M.gguf"],  # название модели : название файла (как на url)
+        'gemma-3-4b-it-GGUF': ["gemma-3-4b-it-Q4_K_M.gguf"],
         'gemma-3-12b-it-GGUF': ["gemma-3-12b-it-Q4_K_M.gguf"],
     },
 })
