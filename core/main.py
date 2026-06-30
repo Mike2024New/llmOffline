@@ -164,9 +164,16 @@ class Engine:
 
     def interactive_chat(self) -> None:
         """Интерактивный чат для cli интерфейса"""
+        request_id = str(uuid.uuid4())[:6]
+        config.message_bus_add(
+            request_id=request_id,
+            level='start',
+            subcomponent='llm',
+            message=f'Интерактивный чат с моделью, чтобы выйти ввести: @exit',
+        )
         while True:
             user_input = input('>>> ')
-            if user_input == '':
+            if user_input == '@exit':
                 break
             # отправка запроса модели
             ask_thread = threading.Thread(
@@ -176,6 +183,13 @@ class Engine:
             ask_thread.start()
             ask_thread.join()
             print()
+
+        config.message_bus_add(
+            request_id=request_id,
+            level='stop',
+            subcomponent='llm',
+            message=f'Интерактивный чат завершен',
+        )
 
     def ask(self, prompt: str) -> str:
         """

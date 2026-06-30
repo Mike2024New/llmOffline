@@ -1,48 +1,59 @@
 import config
 import typer
 from rich import print
-from core import Engine, get_available_models_list, PromptManager
-from pathlib import Path
+from infrastructure.cli_utils import get_cli_app, cli_command_execute
+from config.settings import build_settings
+from core import get_available_models_list, PromptManager, Engine
 
 prompt_manager = PromptManager()
 
-app = typer.Typer(
-    no_args_is_help=True,
-    # если пользователь дал команду без аргументов то не падать с ошибкой а показать справку
-    rich_markup_mode='rich',
-    # добавить rich панели (группировка комманд по заголовкам)
-    add_completion=False,  # убрать блок option в всплывающем меню
+# получение базовых повторяющихся команд
+app = get_cli_app(
+    name=config.APP_NAME,
+    root_dir=config.ROOT_DIR,
+    build_settings=build_settings,
+    exe_mode=config.EXE_MODE,
+    message_bus=config.message_bus_add,
 )
 
 
-@app.callback()
-def main():
-    """CLI интерфейс"""
+@app.command()
+def models(ctx: typer.Context):
+    """
+    Получение списка доступных моделей, например ['gemma-3-4b-it-GGUF', 'gemma-3-12b-it-GGUF']
+    Примеры команд:
+        [yellow]models[/yellow]
+    """
+
+    models_list = cli_command_execute(
+        lambda: get_available_models_list(),
+        command_name=ctx.command.name,
+
+    )
+    print(f"[green]{models_list}[/green]")
 
 
 @app.command()
-def folder():
-    """Открыть домашнюю папку приложения"""
-    from infrastructure.path_utils.open_folder import open_folder
-    open_folder(config.ROOT_DIR)
-
-
-# <специфичные параметры модуля >
-
-@app.command()
-def pr_show():
+def pr_show(ctx: typer.Context):
     """
     Просмотр списка промптов (личная библиотека промптов)
     Примеры команд:
         [yellow]pr-show[/yellow]
     """
-    prompts_list = prompt_manager.all()
+
+    prompts_list = cli_command_execute(
+        lambda: prompt_manager.all(),
+        command_name=ctx.command.name,
+
+    )
+
     for prompt in prompts_list:
         print(f'[green]{prompt} : {prompts_list[prompt]}[/green]')
 
 
 @app.command()
 def pr_add(
+        ctx: typer.Context,
         prompt_name: str | None = typer.Option(None, '-pn', '--prompt-name'),
         prompt_text: str | None = typer.Option(None, '-pt', '--prompt-text'),
 ):
@@ -57,15 +68,17 @@ def pr_add(
     if prompt_name is None or prompt_text is None:
         print(f'[red]Промпт не добавлен, должны быть указаны оба параметра (-pn, -pt)[/red]')
 
-    prompt_manager.add(
-        name=prompt_name,
-        prompt=prompt_text,
+    cli_command_execute(
+        lambda: prompt_manager.add(name=prompt_name, prompt=prompt_text, ),
+        command_name=ctx.command.name,
+
     )
     print(f'[green]Промпт `{prompt_name}` добавлен.[/green]')
 
 
 @app.command()
 def pr_remove(
+        ctx: typer.Context,
         prompt_name: str | None = typer.Option(None, '-pn', '--prompt-name'),
 ):
     """
@@ -78,25 +91,17 @@ def pr_remove(
     if prompt_name is None:
         print(f'[red]Для удаление промпта нужно указать его название (-pn)[/red]')
 
-    prompt_manager.remove(
-        name=prompt_name,
+    cli_command_execute(
+        lambda: prompt_manager.remove(name=prompt_name),
+        command_name=ctx.command.name,
+
     )
     print(f'[green]Промпт `{prompt_name}` удален.[/green]')
 
 
 @app.command()
-def models():
-    """
-    Получение списка доступных моделей, например ['gemma-3-4b-it-GGUF', 'gemma-3-12b-it-GGUF']
-    Примеры команд:
-        [yellow]models[/yellow]
-    """
-    models_list = get_available_models_list()
-    print(f"[green]{models_list}[/green]")
-
-
-@app.command()
-def chat(
+def run(
+        ctx: typer.Context,
         model_name: str | None = typer.Option(None, '-mn', '--model-name'),
         system_prompt: str | None = typer.Option(None, '-sp', '--sys-prompt'),
 ):
@@ -136,69 +141,16 @@ def chat(
     user_input = input(f'Вы согласны на скачивание моделей с HF ( https://huggingface.co/ )? (y/n):_ ')
     consent_to_upload = True if user_input == 'y' else False
 
-    try:
+    def interactive_chat():
         engine = Engine()
         engine.start(model_name=model_name, system_prompt=system_prompt, consent_to_upload=consent_to_upload)
         engine.interactive_chat()
-    except Exception:  # noqa
-        pass
 
+    cli_command_execute(
+        lambda: interactive_chat(),
+        command_name=ctx.command.name,
+    )
 
-# </ специфичные параметры модуля >
-
-# < режим разработчика >
-if not config.EXE_MODE:
-    @app.command()
-    def build(
-            name: str | None = typer.Option(None, '-n', '-name'),
-            one_file: bool = typer.Option(False, '-oe', '--onefile', flag_value=True),
-            entry_path: Path | None = typer.Option(None, '-ep', '--entry_path'),
-            create_resources_symlink: bool = typer.Option(False, '-sl', '--sym-link', flag_value=True),
-    ):
-        """
-        [red]~dev [/red]Создание сборки, приложения .exe или .bin [yellow]build[/yellow]
-        система определяется автоматически windows/linux
-        Опции:
-            -n (--name) - название приложения (если не переопределить то взьмется по умолчанию из settings)
-            -oe (--onefile) - сборка одним файлом (по умолчанию выключена)
-            -sl (--sym-link) - создать симлинк на папку с ресурсами
-            -ep (--entry_path) - стартовый скрипт (по умолчанию этот же скрипт cli.py)
-        Примеры команд:
-            [yellow]build[/yellow]
-            [yellow]build -n my-app[/yellow] - указать название приложения
-            [yellow]build -oe[/yellow] - сборка одним файлом
-            [yellow]build -ep ./main.py[/yellow] - входная точка приложения указанный файл
-            [yellow]build -sl[/yellow] - создать симлинк на папку с ресурсами (для разработки)
-            [yellow]build -n my-app -oe -ep -s ./main.py[/yellow] - все вместе с указанием точки сборки
-        """
-        from infrastructure.builder.main import build
-        from config.settings import build_settings
-        # переопределение опций
-        build_settings.name = name if name is not None else build_settings.name
-        build_settings.one_file = one_file
-        build_settings.create_resources_symlink = create_resources_symlink
-        build_settings.entry_point_path = entry_path if entry_path is not None else build_settings.entry_point_path
-
-        build(build_settings)
-
-
-    @app.command()
-    def git_push():
-        """
-        [red]~dev [/red]Отправка git, с редактированием минорной версии в pyproject.toml, и редактировании блока
-        истории в .md (при условии что там есть заголовок [yellow]`## История развития модуля`[/yellow] и в нем написана новость
-        вида [yellow]`@new`[/yellow]. В корне проекта должен быть файл .env с переменными GIT_URL=<ваш url>, GIT_BRANCH=<ветка>.
-        Примеры команд:
-            [yellow]git-push[/yellow]
-        """
-        from infrastructure.git_client import adapter_git_push_update
-        adapter_git_push_update(
-            root_dir=config.ROOT_DIR,
-            history_header='## История развития модуля',
-            history_new_marker='@new',
-        )
-
-# </ режим разработчика >
 
 if __name__ == '__main__':
     app()

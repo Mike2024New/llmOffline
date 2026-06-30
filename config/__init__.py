@@ -13,7 +13,7 @@ __all__ = [
     'settings_manager',  # настройки приложения (settings.json)
     'models_map',  # карта моделей для загрузки с HF, и работе с ними в core
 ]
-
+APP_NAME = 'llm'
 IS_WINDOWS = 'windows' in platform.system().lower()
 
 # для сборщика (pyinstaller)
